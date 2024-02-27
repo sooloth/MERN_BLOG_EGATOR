@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken")
 const fs = require('fs')
 const path = require('path')
-const {V4: uuid} = require('uuid')
+const uuid = require('uuid').v4;
 
 const User = require('../models/userModel')
 const HttpError = require('../models/errorModel')
@@ -59,7 +59,7 @@ const loginUser = async (req, res, next) => {
         }
 
         const {_id: id, name} = user;
-        const token = jwt.sign({id, name}, process.env.JWT_SECRET, {expiresIn: "30ms"})
+        const token = jwt.sign({id, name}, process.env.JWT_SECRET, {expiresIn: '1d'})
 
         res.status(200).json({token, id, name});
     } catch (error) {
@@ -113,8 +113,8 @@ const changeAvatar = async (req, res, next) => {
         let fileName;
         fileName = avatar.name;
         let splittedFilename = fileName.split('.')
-        let newFilename = splittedFilename[0] + uuid() + '.' + splittedFilename[splittedFilename.length - 1]
-        avatar.mv(path.join(__dirname, '...', 'uploads', newFilename), async (err) => {
+        let newFilename = splittedFilename[0] + uuid() + '.' + splittedFilename[splittedFilename.length -1]
+        avatar.mv(path.join(__dirname, '..', 'uploads', newFilename), async (err) => {
             if(err) {
                 return next(new HttpError(err));
             }

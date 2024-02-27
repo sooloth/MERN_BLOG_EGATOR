@@ -6,9 +6,6 @@ const userSchema = new Schema({
     password: {type: String, required: true},
     avatar: {type: String},
     posts: {type: Number, default: 0},
-    createdAt: {type: Date, required: true},
-    updatedAt: {type: Date, required: true}
-
 },
 {timestamps: true}
 )

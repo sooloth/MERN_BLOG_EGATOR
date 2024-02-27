@@ -1,7 +1,11 @@
-const User = require('../models/userModel')
-const HttpError = require('../models/errorModel')
 const bcrypt = require('bcryptjs')
 const jwt = require("jsonwebtoken")
+const fs = require('fs')
+const path = require('path')
+const {V4: uuid} = require('uuid')
+
+const User = require('../models/userModel')
+const HttpError = require('../models/errorModel')
 
 /////////////// Register a new user
 //POST: api/users/register
@@ -34,12 +38,6 @@ const registerUser = async (req, res, next) => {
     }
 }
 
-
-
-
-
-
-
 /////////////// Login user
 //POST: api/users/login
 //UNPROTECTED
@@ -65,20 +63,24 @@ const loginUser = async (req, res, next) => {
 
         res.status(200).json({token, id, name});
     } catch (error) {
-        return next(new HttpError(error.message, 422))
+        return next(new HttpError("register failed. please check credentials", 422))
     }
 }
-
-
-
-
-
 
 /////////////// User Profile
 //POST: api/users/:id
 //PROTECTED
 const getUser = async (req, res, next) => {
-    res.json("User Profile")
+    try {
+        const {id} = req.params;
+        const user = await User.findById(id).select('-password');
+        if(!user) {
+            return next(new HttpError("User not found", 404))
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        return next(new HttpError(error.message))
+    }
 }
 
 
@@ -89,7 +91,43 @@ const getUser = async (req, res, next) => {
 //POST: api/users/change-avatar
 //PROTECTED
 const changeAvatar = async (req, res, next) => {
-    res.json("Change User Avatar")
+    try {
+        if(!req.files.avatar) {
+            return next(new HttpError("Please choose an image.", 422))
+        }
+
+        //find user from database
+        const user = await User.findById(req.user.id)
+        //delete avatar if image exists
+        if(user.avatar) {
+            fs.unlink(path.join(__dirname, '...', 'uploads', user.avatar), (err) => {
+                if(err) {
+                    return next(new HttpError(err))
+                }
+            })
+        }
+        const {avatar} = req.files;
+        if(avatar.size > 500000) {
+            return next(new HttpError("Profile picture too big Should be less than 500kb"), 422)
+        }
+        let fileName;
+        fileName = avatar.name;
+        let splittedFilename = fileName.split('.')
+        let newFilename = splittedFilename[0] + uuid() + '.' + splittedFilename[splittedFilename.length - 1]
+        avatar.mv(path.join(__dirname, '...', 'uploads', newFilename), async (err) => {
+            if(err) {
+                return next(new HttpError(err));
+            }
+
+            const updatedAvatar = await User.findByIdAndUpdate(req.user.id, {avatar: newFilename}, {new: true});
+            if(!updatedAvatar) {
+                return next(new HttpError("Avatar couldn't be changed.", 422))
+            }
+            res.status(200).json(updatedAvatar);
+        })
+    } catch (error) {
+        return next(new HttpError(error)); 
+    }
 }
 
 
@@ -114,7 +152,12 @@ const editUser = async (req, res, next) => {
 //POST: api/users/authors
 //UNPROTECTED
 const getAuthors = async (req, res, next) => {
-    res.json("Get all users/authors")
+    try {
+        const authors = await User.find().select('-password');
+        res.json(authors);
+    } catch (error) {
+        return next(new HttpError(error.message))
+    }
 }
 
 

@@ -100,7 +100,7 @@ const changeAvatar = async (req, res, next) => {
         const user = await User.findById(req.user.id)
         //delete avatar if image exists
         if(user.avatar) {
-            fs.unlink(path.join(__dirname, '...', 'uploads', user.avatar), (err) => {
+            fs.unlink(path.join(__dirname, '..', 'uploads', user.avatar), (err) => {
                 if(err) {
                     return next(new HttpError(err))
                 }
@@ -139,7 +139,45 @@ const changeAvatar = async (req, res, next) => {
 //POST: api/users/edit-user
 //PROTECTED
 const editUser = async (req, res, next) => {
-    res.json("Edit user details")
+    try {
+        const {name, email, currentPassword, newPassword, ConfirmNewPassword} = req.body;
+        if(!name || !email || !currentPassword || !newPassword) {
+            return next(new HttpError("Fill in all fields.", 422))
+        }
+        // get user from database  
+        const user = await User.findById(req.user.id);
+        if(!user) {
+            return next(new HttpError("User not found.", 403))
+        }
+
+        //make sure new email doesn't already exists
+        const emailExist = await User.findOne({email})
+        //we want to update other details with/without changing the email 
+        // (which is a unique id because we use it to login)
+        if(emailExist && (emailExist._id != req.user.id)) {
+            return next(new HttpError("Email already exists.", 422))
+        }
+        // compare current password to db password
+        const validateUserPassword = await bcrypt.compare(currentPassword, user.password);
+        if(!validateUserPassword) {
+            return next(new HttpError("Invalid Current Password", 422))
+        }
+
+        //compare new passwords
+        if(newPassword !== ConfirmNewPassword) {
+            return next(new HttpError("New password doesn't match.", 422))
+        }
+
+        //hash new password
+        const salt = await bcrypt.genSalt(10)
+        const hash = await bcrypt.hash(newPassword, salt);
+
+        //update user info in database
+        const newInfo = await User.findByIdAndUpdate(req.user.id, {name, email, password: hash}, {new: true});
+        res.status(200).json(newInfo);
+    } catch (error) {
+        return next(new HttpError(error));
+    }
 }
 
 
